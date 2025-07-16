@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>花火テトリス</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(to bottom, #000428, #004e92);
+            font-family: 'Arial', sans-serif;
+            color: white;
+            overflow: hidden;
+            touch-action: manipulation;
+            user-select: none;
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            position: relative;
+            padding: 10px;
+        }
+        
+        .game-area {
+            text-align: center;
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        canvas {
+            border: 3px solid #ffd700;
+            border-radius: 10px;
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
+            background: rgba(0, 0, 0, 0.8);
+            max-width: 100%;
+            height: auto;
+        }
+        
+        .score {
+            font-size: clamp(18px, 4vw, 24px);
+            margin: 10px 0;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        }
+        
+        .controls {
+            margin-top: 10px;
+            font-size: clamp(12px, 3vw, 16px);
+            opacity: 0.8;
+            display: none;
+        }
+        
+        .touch-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+            justify-content: center;
+            width: 100%;
+        }
+        
+        .control-btn {
+            background: linear-gradient(45deg, #4ecdc4, #45b7d1);
+            border: none;
+            color: white;
+            padding: 15px 20px;
+            font-size: 16px;
+            border-radius: 15px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(78, 205, 196, 0.3);
+            transition: all 0.2s ease;
+            touch-action: manipulation;
+            user-select: none;
+            min-width: 60px;
+            min-height: 50px;
+        }
+        
+        .control-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(78, 205, 196, 0.4);
+        }
+        
+        .control-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 10px rgba(78, 205, 196, 0.3);
+        }
+        
+        .control-row {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+            justify-content: center;
+        }
+        
+        .control-row:last-child {
+            gap: 15px;
+        }
+        
+        .control-row:last-child .control-btn {
+            flex: 1;
+        }
+        
+        .control-btn.rotate {
+            background: linear-gradient(45deg, #ff6b6b, #ffd93d);
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+        }
+        
+        .control-btn.rotate:hover {
+            box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4);
+        }
+        
+        .control-btn.drop {
+            background: linear-gradient(45deg, #96ceb4, #feca57);
+            box-shadow: 0 4px 15px rgba(150, 206, 180, 0.3);
+            flex: 1;
+            max-width: 150px;
+        }
+        
+        .control-btn.drop:hover {
+            box-shadow: 0 6px 20px rgba(150, 206, 180, 0.4);
+        }
+        
+        @media (max-width: 768px) {
+            .controls {
+                display: none;
+            }
+            
+            .container {
+                padding: 5px;
+            }
+            
+            .control-btn {
+                padding: 12px 16px;
+                font-size: 14px;
+            }
+        }
+        
+        @media (min-width: 769px) {
+            .touch-controls {
+                display: none;
+            }
+            
+            .controls {
+                display: block;
+            }
+        }
+        
+        .firework {
+            position: absolute;
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        @keyframes explode {
+            0% {
+                transform: scale(0) translate(0, 0);
+                opacity: 1;
+            }
+            50% {
+                opacity: 1;
+            }
+            100% {
+                transform: scale(1.5);
+                opacity: 0;
+            }
+        }
+        
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            animation: explode 1.5s ease-out forwards;
+        }
+        
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            color: #ff6b6b;
+            text-shadow: 4px 4px 8px rgba(0, 0, 0, 0.8);
+            display: none;
+            z-index: 100;
+        }
+        
+        .restart-btn {
+            background: linear-gradient(45deg, #ff6b6b, #ffd93d);
+            border: none;
+            color: white;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 25px;
+            cursor: pointer;
+            margin-top: 20px;
+            box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+            transition: all 0.3s ease;
+        }
+        
+        .restart-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(255, 107, 107, 0.6);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="game-area">
+            <div class="score">スコア: <span id="score">0</span></div>
+            <canvas id="gameCanvas" width="300" height="600"></canvas>
+            <div class="controls">
+                ←→: 移動 | ↓: 高速落下 | ↑: 回転 | スペース: 瞬間落下
+            </div>
+            <div class="touch-controls">
+                <div class="control-row">
+                    <button class="control-btn" id="leftBtn">←</button>
+                    <button class="control-btn rotate" id="rotateBtn">↻</button>
+                    <button class="control-btn" id="rightBtn">→</button>
+                </div>
+                <div class="control-row">
+                    <button class="control-btn" id="downBtn">↓降下</button>
+                    <button class="control-btn drop" id="dropBtn">瞬間落下</button>
+                </div>
+            </div>
+            <div class="game-over" id="gameOver">
+                ゲームオーバー
+                <br>
+                <button class="restart-btn" onclick="restartGame()">もう一度</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const gameOverElement = document.getElementById('gameOver');
+
+        const BOARD_WIDTH = 10;
+        const BOARD_HEIGHT = 20;
+        const CELL_SIZE = Math.min(30, Math.floor(Math.min(window.innerWidth * 0.8, window.innerHeight * 0.6) / BOARD_WIDTH));
+
+        let board = Array(BOARD_HEIGHT).fill().map(() => Array(BOARD_WIDTH).fill(0));
+        let score = 0;
+        let gameRunning = true;
+        let currentPiece = null;
+        let dropTime = 0;
+        let dropInterval = 1000;
+
+        // テトリスピースの定義（花火をイメージした鮮やかな色）
+        const pieces = [
+            { shape: [[1,1,1,1]], color: '#ff6b6b' }, // I
+            { shape: [[1,1],[1,1]], color: '#ffd93d' }, // O
+            { shape: [[0,1,0],[1,1,1]], color: '#4ecdc4' }, // T
+            { shape: [[0,1,1],[1,1,0]], color: '#45b7d1' }, // S
+            { shape: [[1,1,0],[0,1,1]], color: '#96ceb4' }, // Z
+            { shape: [[1,0,0],[1,1,1]], color: '#feca57' }, // J
+            { shape: [[0,0,1],[1,1,1]], color: '#ff9ff3' }  // L
+        ];
+
+        function createPiece() {
+            const piece = pieces[Math.floor(Math.random() * pieces.length)];
+            return {
+                shape: piece.shape,
+                color: piece.color,
+                x: Math.floor(BOARD_WIDTH / 2) - Math.floor(piece.shape[0].length / 2),
+                y: 0
+            };
+        }
+
+        function drawCell(x, y, color) {
+            const cellWidth = canvas.width / BOARD_WIDTH;
+            const cellHeight = canvas.height / BOARD_HEIGHT;
+            
+            ctx.fillStyle = color;
+            ctx.fillRect(x * cellWidth, y * cellHeight, cellWidth, cellHeight);
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x * cellWidth, y * cellHeight, cellWidth, cellHeight);
+        }
+
+        function drawBoard() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // ボードの描画
+            for (let y = 0; y < BOARD_HEIGHT; y++) {
+                for (let x = 0; x < BOARD_WIDTH; x++) {
+                    if (board[y][x]) {
+                        drawCell(x, y, board[y][x]);
+                    }
+                }
+            }
+            
+            // 現在のピースの描画
+            if (currentPiece) {
+                for (let y = 0; y < currentPiece.shape.length; y++) {
+                    for (let x = 0; x < currentPiece.shape[y].length; x++) {
+                        if (currentPiece.shape[y][x]) {
+                            drawCell(currentPiece.x + x, currentPiece.y + y, currentPiece.color);
+                        }
+                    }
+                }
+            }
+        }
+
+        function isValidMove(piece, dx, dy, rotation = null) {
+            const shape = rotation || piece.shape;
+            const newX = piece.x + dx;
+            const newY = piece.y + dy;
+            
+            for (let y = 0; y < shape.length; y++) {
+                for (let x = 0; x < shape[y].length; x++) {
+                    if (shape[y][x]) {
+                        const boardX = newX + x;
+                        const boardY = newY + y;
+                        
+                        if (boardX < 0 || boardX >= BOARD_WIDTH || 
+                            boardY >= BOARD_HEIGHT || 
+                            (boardY >= 0 && board[boardY][boardX])) {
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+
+        function rotatePiece(piece) {
+            const rotated = piece.shape[0].map((_, i) => 
+                piece.shape.map(row => row[i]).reverse()
+            );
+            return rotated;
+        }
+
+        function placePiece(piece) {
+            for (let y = 0; y < piece.shape.length; y++) {
+                for (let x = 0; x < piece.shape[y].length; x++) {
+                    if (piece.shape[y][x]) {
+                        board[piece.y + y][piece.x + x] = piece.color;
+                    }
+                }
+            }
+        }
+
+        function clearLines() {
+            const linesCleared = [];
+            for (let y = BOARD_HEIGHT - 1; y >= 0; y--) {
+                if (board[y].every(cell => cell !== 0)) {
+                    linesCleared.push(y);
+                }
+            }
+            
+            if (linesCleared.length > 0) {
+                console.log('Lines cleared:', linesCleared); // デバッグ用
+                // 花火エフェクトを生成
+                linesCleared.forEach(line => {
+                    for (let x = 0; x < BOARD_WIDTH; x++) {
+                        setTimeout(() => {
+                            createFirework(x, line);
+                        }, x * 50); // 少し時間差をつけて花火を表示
+                    }
+                });
+                
+                // ラインを削除
+                setTimeout(() => {
+                    linesCleared.forEach(line => {
+                        board.splice(line, 1);
+                        board.unshift(Array(BOARD_WIDTH).fill(0));
+                    });
+                }, 500);
+                
+                score += linesCleared.length * 100;
+                scoreElement.textContent = score;
+            }
+        }
+
+        function createFirework(x, y) {
+            const firework = document.createElement('div');
+            firework.className = 'firework';
+            
+            const rect = canvas.getBoundingClientRect();
+            const cellWidth = canvas.width / BOARD_WIDTH;
+            const cellHeight = canvas.height / BOARD_HEIGHT;
+            
+            firework.style.left = (rect.left + x * cellWidth + cellWidth/2) + 'px';
+            firework.style.top = (rect.top + y * cellHeight + cellHeight/2) + 'px';
+            
+            const colors = ['#ff6b6b', '#ffd93d', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3'];
+            
+            for (let i = 0; i < 15; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                particle.style.backgroundColor = color;
+                particle.style.boxShadow = `0 0 15px ${color}`;
+                particle.style.width = '6px';
+                particle.style.height = '6px';
+                
+                const angle = (i * 24) * Math.PI / 180;
+                const distance = 40 + Math.random() * 30;
+                const endX = Math.cos(angle) * distance;
+                const endY = Math.sin(angle) * distance;
+                
+                particle.style.transform = `translate(${endX}px, ${endY}px)`;
+                
+                firework.appendChild(particle);
+            }
+            
+            document.body.appendChild(firework);
+            
+            setTimeout(() => {
+                if (document.body.contains(firework)) {
+                    document.body.removeChild(firework);
+                }
+            }, 2000);
+        }
+
+        function gameLoop() {
+            if (!gameRunning) return;
+            
+            const now = Date.now();
+            if (now - dropTime > dropInterval) {
+                if (currentPiece) {
+                    if (isValidMove(currentPiece, 0, 1)) {
+                        currentPiece.y++;
+                    } else {
+                        placePiece(currentPiece);
+                        clearLines();
+                        currentPiece = createPiece();
+                        
+                        if (!isValidMove(currentPiece, 0, 0)) {
+                            gameRunning = false;
+                            gameOverElement.style.display = 'block';
+                            return;
+                        }
+                    }
+                } else {
+                    currentPiece = createPiece();
+                }
+                dropTime = now;
+            }
+            
+            drawBoard();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function restartGame() {
+            board = Array(BOARD_HEIGHT).fill().map(() => Array(BOARD_WIDTH).fill(0));
+            score = 0;
+            scoreElement.textContent = score;
+            gameRunning = true;
+            currentPiece = null;
+            dropTime = 0;
+            gameOverElement.style.display = 'none';
+            gameLoop();
+        }
+
+        // キーボードイベント
+        document.addEventListener('keydown', (e) => {
+            if (!gameRunning || !currentPiece) return;
+            
+            switch (e.key) {
+                case 'ArrowLeft':
+                    if (isValidMove(currentPiece, -1, 0)) {
+                        currentPiece.x--;
+                    }
+                    break;
+                case 'ArrowRight':
+                    if (isValidMove(currentPiece, 1, 0)) {
+                        currentPiece.x++;
+                    }
+                    break;
+                case 'ArrowDown':
+                    if (isValidMove(currentPiece, 0, 1)) {
+                        currentPiece.y++;
+                    }
+                    break;
+                case 'ArrowUp':
+                    const rotated = rotatePiece(currentPiece);
+                    if (isValidMove(currentPiece, 0, 0, rotated)) {
+                        currentPiece.shape = rotated;
+                    }
+                    break;
+                case ' ':
+                    while (isValidMove(currentPiece, 0, 1)) {
+                        currentPiece.y++;
+                    }
+                    break;
+            }
+        });
+
+        // タッチ操作
+        function handleMove(direction) {
+            if (!gameRunning || !currentPiece) return;
+            
+            switch (direction) {
+                case 'left':
+                    if (isValidMove(currentPiece, -1, 0)) {
+                        currentPiece.x--;
+                    }
+                    break;
+                case 'right':
+                    if (isValidMove(currentPiece, 1, 0)) {
+                        currentPiece.x++;
+                    }
+                    break;
+                case 'down':
+                    if (isValidMove(currentPiece, 0, 1)) {
+                        currentPiece.y++;
+                    }
+                    break;
+                case 'rotate':
+                    const rotated = rotatePiece(currentPiece);
+                    if (isValidMove(currentPiece, 0, 0, rotated)) {
+                        currentPiece.shape = rotated;
+                    }
+                    break;
+                case 'drop':
+                    while (isValidMove(currentPiece, 0, 1)) {
+                        currentPiece.y++;
+                    }
+                    break;
+            }
+        }
+
+        // タッチボタンのイベントリスナー
+        document.getElementById('leftBtn').addEventListener('click', () => handleMove('left'));
+        document.getElementById('rightBtn').addEventListener('click', () => handleMove('right'));
+        document.getElementById('downBtn').addEventListener('click', () => handleMove('down'));
+        document.getElementById('rotateBtn').addEventListener('click', () => handleMove('rotate'));
+        document.getElementById('dropBtn').addEventListener('click', () => handleMove('drop'));
+
+        // 連続タップ対応
+        let touchIntervals = {};
+        
+        function startContinuousMove(direction, element) {
+            if (touchIntervals[direction]) return;
+            
+            handleMove(direction);
+            touchIntervals[direction] = setInterval(() => {
+                handleMove(direction);
+            }, 150);
+        }
+        
+        function stopContinuousMove(direction) {
+            if (touchIntervals[direction]) {
+                clearInterval(touchIntervals[direction]);
+                delete touchIntervals[direction];
+            }
+        }
+        
+        // 長押し対応
+        document.getElementById('leftBtn').addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            startContinuousMove('left', e.target);
+        });
+        document.getElementById('leftBtn').addEventListener('touchend', (e) => {
+            e.preventDefault();
+            stopContinuousMove('left');
+        });
+        
+        document.getElementById('rightBtn').addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            startContinuousMove('right', e.target);
+        });
+        document.getElementById('rightBtn').addEventListener('touchend', (e) => {
+            e.preventDefault();
+            stopContinuousMove('right');
+        });
+        
+        document.getElementById('downBtn').addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            startContinuousMove('down', e.target);
+        });
+        document.getElementById('downBtn').addEventListener('touchend', (e) => {
+            e.preventDefault();
+            stopContinuousMove('down');
+        });
+        
+        // mousedown/mouseup対応も追加
+        document.getElementById('leftBtn').addEventListener('mousedown', () => {
+            startContinuousMove('left');
+        });
+        document.getElementById('leftBtn').addEventListener('mouseup', () => {
+            stopContinuousMove('left');
+        });
+        
+        document.getElementById('rightBtn').addEventListener('mousedown', () => {
+            startContinuousMove('right');
+        });
+        document.getElementById('rightBtn').addEventListener('mouseup', () => {
+            stopContinuousMove('right');
+        });
+        
+        document.getElementById('downBtn').addEventListener('mousedown', () => {
+            startContinuousMove('down');
+        });
+        document.getElementById('downBtn').addEventListener('mouseup', () => {
+            stopContinuousMove('down');
+        });
+
+        // 背景に花火を定期的に表示
+        function createBackgroundFirework() {
+            const firework = document.createElement('div');
+            firework.className = 'firework';
+            
+            const x = Math.random() * window.innerWidth;
+            const y = Math.random() * (window.innerHeight * 0.7);
+            
+            firework.style.left = x + 'px';
+            firework.style.top = y + 'px';
+            
+            const colors = ['#ff6b6b', '#ffd93d', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3'];
+            
+            for (let i = 0; i < 16; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                particle.style.boxShadow = `0 0 10px ${colors[Math.floor(Math.random() * colors.length)]}`;
+                
+                const angle = (i * 22.5) * Math.PI / 180;
+                const distance = 60 + Math.random() * 40;
+                const endX = Math.cos(angle) * distance;
+                const endY = Math.sin(angle) * distance;
+                
+                particle.style.transform = `translate(${endX}px, ${endY}px)`;
+                
+                firework.appendChild(particle);
+            }
+            
+            document.body.appendChild(firework);
+            
+            setTimeout(() => {
+                if (document.body.contains(firework)) {
+                    document.body.removeChild(firework);
+                }
+            }, 2000);
+        }
+        
+        setInterval(() => {
+            if (gameRunning) {
+                createBackgroundFirework();
+            }
+        }, 2000);
+
+        // ゲーム開始
+        gameLoop();
+    </script>
+</body>
+</html>
