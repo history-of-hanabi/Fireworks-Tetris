@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>花火テトリス</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            padding: 5px;
+            background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        .game-container {
+            display: flex;
+            gap: 10px;
+            padding: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            max-width: 95vw;
+        }
+        @media (max-width: 768px) {
+            body {
+                padding: 0;
+                min-height: 100dvh;
+                height: 100dvh;
+                overflow: hidden;
+            }
+            .game-container {
+                flex-direction: column;
+                align-items: center;
+                gap: 8px;
+                padding: 5px;
+                height: 100dvh;
+                max-height: 100dvh;
+                justify-content: space-between;
+                border-radius: 0;
+            }
+        }
+        .game-board {
+            position: relative;
+            border: 3px solid #4a90e2;
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            box-shadow: inset 0 0 20px rgba(74, 144, 226, 0.3);
+        }
+        @media (max-width: 768px) {
+            .game-board {
+                border: 2px solid #4a90e2;
+            }
+        }
+        .mobile-header {
+            display: none;
+        }
+        @media (max-width: 768px) {
+            .mobile-header {
+                display: flex;
+                justify-content: space-between;
+                width: 100%;
+                max-width: 300px;
+                background: rgba(0, 0, 0, 0.5);
+                padding: 8px 15px;
+                border-radius: 10px;
+                border: 2px solid #4a90e2;
+                color: white;
+                font-size: 14px;
+                margin-bottom: 5px;
+            }
+            .mobile-header .stat {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                flex: 1;
+            }
+            .mobile-header .stat-label {
+                font-size: 11px;
+                color: #4a90e2;
+                margin-bottom: 2px;
+            }
+            .mobile-header .stat-value {
+                font-weight: bold;
+                font-size: 16px;
+            }
+        }
+
+        .info-panel {
+            color: white;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            min-width: 150px;
+        }
+        @media (max-width: 768px) {
+            .info-panel {
+                display: none;
+            }
+        }
+        .info-box {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 15px;
+            border-radius: 10px;
+            border: 2px solid #4a90e2;
+        }
+        .info-box h3 {
+            margin: 0 0 10px 0;
+            color: #4a90e2;
+            text-align: center;
+        }
+        .info-box p {
+            margin: 5px 0;
+            font-size: 18px;
+            text-align: center;
+        }
+        .controls {
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .next-piece {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 60px;
+        }
+        canvas {
+            display: block;
+            border-radius: 7px;
+            /* 追加：無駄な上下余白を消す */
+            margin: 0 auto;
+            max-width: 100vw;
+        }
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            border: 3px solid #e74c3c;
+            display: none;
+        }
+        .game-over h2 {
+            margin: 0 0 15px 0;
+            color: #e74c3c;
+        }
+        .game-over button {
+            background: #4a90e2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 15px;
+        }
+        .game-over button:hover {
+            background: #357abd;
+        }
+        .touch-controls {
+            display: none;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 15px;
+            border: 2px solid #4a90e2;
+            width: 100%;
+            max-width: 300px;
+            box-sizing: border-box;
+            /* 安全余白付与 */
+            margin-bottom: env(safe-area-inset-bottom, 10px);
+        }
+        @media (max-width: 768px) {
+            .touch-controls {
+                display: grid;
+            }
+        }
+        .control-btn {
+            background: rgba(74, 144, 226, 0.8);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 18px 12px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+        }
+        .control-btn:active {
+            background: rgba(74, 144, 226, 1);
+            transform: scale(0.95);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+        }
+        .control-btn.rotate {
+            grid-column: 2;
+            font-size: 26px;
+            background: rgba(138, 43, 226, 0.8);
+        }
+        .control-btn.rotate:active {
+            background: rgba(138, 43, 226, 1);
+        }
+        .control-btn.left {
+            grid-column: 1;
+            grid-row: 2;
+            font-size: 22px;
+        }
+        .control-btn.down {
+            grid-column: 2;
+            grid-row: 2;
+            font-size: 22px;
+        }
+        .control-btn.right {
+            grid-column: 3;
+            grid-row: 2;
+            font-size: 22px;
+        }
+        .control-btn.drop {
+            grid-column: 1 / 4;
+            grid-row: 3;
+            background: rgba(231, 76, 60, 0.8);
+            font-size: 18px;
+            min-height: 50px;
+            font-weight: 900;
+        }
+        .control-btn.drop:active {
+            background: rgba(231, 76, 60, 1);
+        }
+        .next-piece-mobile {
+            display: none;
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 8px;
+            border-radius: 8px;
+            border: 1px solid #4a90e2;
+        }
+        @media (max-width: 768px) {
+            .next-piece-mobile {
+                display: block;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="mobile-header">
+            <div class="stat">
+                <div class="stat-label">スコア</div>
+                <div class="stat-value" id="mobileScore">0</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">レベル</div>
+                <div class="stat-value" id="mobileLevel">1</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">ライン</div>
+                <div class="stat-value" id="mobileLines">0</div>
+            </div>
+        </div>
+        
+        <div class="game-board">
+            <canvas id="gameCanvas" width="300" height="600"></canvas>
+            <canvas id="effectsCanvas" width="300" height="600" style="position: absolute; top: 0; left: 0; pointer-events: none;"></canvas>
+            <div class="next-piece-mobile">
+                <canvas id="nextCanvasMobile" width="60" height="45"></canvas>
+            </div>
+            <div class="game-over" id="gameOver">
+                <h2>ゲームオーバー</h2>
+                <p>スコア: <span id="finalScore"></span></p>
+                <p>レベル: <span id="finalLevel"></span></p>
+                <button onclick="startGame()">もう一度プレイ</button>
+            </div>
+        </div>
+        
+        <div class="info-panel">
+            <div class="info-box">
+                <h3>スコア</h3>
+                <p id="score">0</p>
+            </div>
+            <div class="info-box">
+                <h3>レベル</h3>
+                <p id="level">1</p>
+            </div>
+            <div class="info-box">
+                <h3>ライン</h3>
+                <p id="lines">0</p>
+            </div>
+            <div class="info-box">
+                <h3>次のピース</h3>
+                <div class="next-piece">
+                    <canvas id="nextCanvas" width="80" height="60"></canvas>
+                </div>
+            </div>
+            <div class="info-box controls">
+                <h3>操作方法</h3>
+                <p>←→: 移動</p>
+                <p>↓: 高速落下</p>
+                <p>↑: 回転</p>
+                <p>スペース: ハードドロップ</p>
+            </div>
+        </div>
+        
+        <div class="touch-controls">
+            <button class="control-btn rotate" id="rotateBtn">↻</button>
+            <button class="control-btn left" id="leftBtn">←</button>
+            <button class="control-btn down" id="downBtn">↓</button>
+            <button class="control-btn right" id="rightBtn">→</button>
+            <button class="control-btn drop" id="dropBtn">DROP</button>
+        </div>
+    </div>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const effectsCanvas = document.getElementById('effectsCanvas');
+        const effectsCtx = effectsCanvas.getContext('2d');
+        const nextCanvas = document.getElementById('nextCanvas');
+        const nextCtx = nextCanvas.getContext('2d');
+        const nextCanvasMobile = document.getElementById('nextCanvasMobile');
+        const nextCtxMobile = nextCanvasMobile ? nextCanvasMobile.getContext('2d') : null;
+
+        let BOARD_WIDTH = 10;
+        let BOARD_HEIGHT = 20;
+        // BLOCK_SIZEは可変
+        let BLOCK_SIZE = 30;
+
+        // デバイス・画面サイズに合わせてcanvas/BLOCK_SIZEを調整
+        function resizeCanvasForMobile() {
+            if (window.innerWidth <= 768) {
+                // コントローラ高さ分引いて余白を取る（下端まで切れない設計）
+                const controllerPad = 110;
+                // dprを考慮
+                const deviceScale = window.devicePixelRatio || 1;
+
+                // 実表示エリアの高さに合わせる
+                const safeHeight = Math.max(window.innerHeight, document.documentElement.clientHeight) - controllerPad;
+                // ピース数で割って最適なブロックサイズ決定
+                const block = Math.floor(Math.min(window.innerWidth * 0.98 / BOARD_WIDTH, safeHeight / BOARD_HEIGHT));
+                // 最小・最大制限
+                const safeBlock = Math.max(12, Math.min(block, 45));
+                BLOCK_SIZE = safeBlock;
+
+                const boardWidth = BLOCK_SIZE * BOARD_WIDTH;
+                const boardHeight = BLOCK_SIZE * BOARD_HEIGHT;
+
+                // canvasの表示サイズ＆実ピクセルサイズ 両方を調整
+                [canvas, effectsCanvas].forEach(c => {
+                    c.width = boardWidth * deviceScale;
+                    c.height = boardHeight * deviceScale;
+                    c.style.width = boardWidth + 'px';
+                    c.style.height = boardHeight + 'px';
+                    // スケーリング
+                    const ctx2 = c.getContext('2d');
+                    ctx2.setTransform(deviceScale, 0, 0, deviceScale, 0, 0);
+                });
+            } else {
+                // PC用のサイズ（元の300x600で固定）
+                BLOCK_SIZE = 30;
+                [canvas, effectsCanvas].forEach(c => {
+                    c.width = 300;
+                    c.height = 600;
+                    c.style.width = "300px";
+                    c.style.height = "600px";
+                    const ctx2 = c.getContext('2d');
+                    ctx2.setTransform(1, 0, 0, 1, 0, 0);
+                });
+            }
+        }
+        // 初期化＆リサイズイベント対応
+        resizeCanvasForMobile();
+        window.addEventListener('resize', () => {
+            resizeCanvasForMobile();
+            drawBoard();
+            drawNextPiece();
+        });
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => {
+                resizeCanvasForMobile();
+                drawBoard();
+                drawNextPiece();
+            }, 400);
+        });
+
+        // ----- この続きにゲームロジック・エフェクト・描画実装が続きます -----
+        // ------------------------------------------------
+        // テトロミノ定義などゲームロジック・エフェクト
+        // ------------------------------------------------
+
+        const TETROMINOS = [
+            {
+                shape: [ [1,1,1,1] ],
+                color: '#00f5ff'
+            },
+            {
+                shape: [ [1,1],[1,1] ],
+                color: '#ffff00'
+            },
+            {
+                shape: [ [0,1,0],[1,1,1] ],
+                color: '#800080'
+            },
+            {
+                shape: [ [0,1,1],[1,1,0] ],
+                color: '#00ff00'
+            },
+            {
+                shape: [ [1,1,0],[0,1,1] ],
+                color: '#ff0000'
+            },
+            {
+                shape: [ [1,0,0],[1,1,1] ],
+                color: '#ffa500'
+            },
+            {
+                shape: [ [0,0,1],[1,1,1] ],
+                color: '#0000ff'
+            }
+        ];
+
+        let board = [];
+        let currentPiece = null;
+        let nextPiece = null;
+        let score = 0;
+        let level = 1;
+        let lines = 0;
+        let dropTime = 0;
+        let dropInterval = 1000;
+        let gameRunning = true;
+        let particles = [];
+
+        // -------- 花火パーティクル --------
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random()-0.5)*15;
+                this.vy = (Math.random()-0.5)*15 - 5;
+                this.color = color;
+                this.life = 1.0;
+                this.decay = Math.random()*0.02 + 0.01;
+                this.size = Math.random()*4 + 2;
+                this.gravity = 0.3;
+                this.sparkle = Math.random()>0.7;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += this.gravity;
+                this.vx *= 0.99;
+                this.life -= this.decay;
+            }
+            draw() {
+                if(this.life<=0) return;
+                effectsCtx.save();
+                effectsCtx.globalAlpha = this.life;
+                if(this.sparkle){
+                    effectsCtx.shadowColor = this.color;
+                    effectsCtx.shadowBlur = 20;
+                }
+                effectsCtx.fillStyle = this.color;
+                effectsCtx.beginPath();
+                effectsCtx.arc(this.x, this.y, this.size*this.life, 0, Math.PI*2);
+                effectsCtx.fill();
+                if(this.sparkle && this.life>0.5){
+                    effectsCtx.fillStyle = '#fff';
+                    effectsCtx.beginPath();
+                    effectsCtx.arc(this.x, this.y, (this.size*this.life)*0.3,0,Math.PI*2);
+                    effectsCtx.fill();
+                }
+                effectsCtx.restore();
+            }
+            isDead() {
+                return this.life<=0 || this.y > canvas.height;
+            }
+        }
+
+        function createFireworks(x, y, color, count=20) {
+            for(let i=0;i<count;i++){
+                particles.push(new Particle(x, y, color));
+            }
+        }
+        function createLevelUpFireworks() {
+            const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+            for(let i=0;i<5;i++){
+                setTimeout(()=>{
+                    const x = Math.random()*canvas.width;
+                    const y = Math.random()*canvas.height*0.5;
+                    const color = colors[Math.floor(Math.random()*colors.length)];
+                    createFireworks(x, y, color, 30);
+                }, i*200);
+            }
+        }
+        function initBoard() {
+            board = [];
+            for(let y=0;y<BOARD_HEIGHT;y++){
+                board[y] = [];
+                for(let x=0;x<BOARD_WIDTH;x++){
+                    board[y][x]=0;
+                }
+            }
+        }
+
+        function getRandomPiece() {
+            const index = Math.floor(Math.random()*TETROMINOS.length);
+            return {
+                ...TETROMINOS[index],
+                x: Math.floor(BOARD_WIDTH/2)-1,
+                y: 0,
+                shape: TETROMINOS[index].shape.map(row=>[...row])
+            };
+        }
+
+        function canMove(piece, dx, dy, rotation=piece.shape) {
+            for(let y=0;y<rotation.length;y++){
+                for(let x=0;x<rotation[y].length;x++){
+                    if(rotation[y][x]){
+                        const nx = piece.x + x + dx;
+                        const ny = piece.y + y + dy;
+                        if(nx<0||nx>=BOARD_WIDTH||ny>=BOARD_HEIGHT){ return false; }
+                        if(ny>=0 && board[ny][nx]){ return false; }
+                    }
+                }
+            }
+            return true;
+        }
+
+        function placePiece(piece) {
+            for(let y=0;y<piece.shape.length;y++){
+                for(let x=0;x<piece.shape[y].length;x++){
+                    if(piece.shape[y][x]){
+                        if(piece.y+y<0){
+                            gameRunning = false;
+                            document.getElementById('gameOver').style.display='block';
+                            document.getElementById('finalScore').textContent=score;
+                            document.getElementById('finalLevel').textContent=level;
+                            return;
+                        }
+                        board[piece.y+y][piece.x+x]=piece.color;
+                    }
+                }
+            }
+        }
+
+        function clearLines() {
+            let linesCleared=0;
+            let clearedRows=[];
+            for(let y=BOARD_HEIGHT-1;y>=0;y--){
+                if(board[y].every(cell=>cell!==0)){
+                    clearedRows.push(y);
+                    for(let x=0;x<BOARD_WIDTH;x++){
+                        const px=(x+0.5)*BLOCK_SIZE;
+                        const py=(y+0.5)*BLOCK_SIZE;
+                        createFireworks(px, py, board[y][x], 15);
+                    }
+                    board.splice(y,1);
+                    board.unshift(new Array(BOARD_WIDTH).fill(0));
+                    linesCleared++;
+                    y++;
+                }
+            }
+            if(linesCleared>0){
+                lines += linesCleared;
+                const lineBonus=[0,40,100,300,1200];
+                score += lineBonus[linesCleared]*level;
+                const newLevel = Math.floor(lines/10)+1;
+                if(newLevel>level){
+                    level = newLevel;
+                    dropInterval = Math.max(50, 1000-(level-1)*50);
+                    createLevelUpFireworks();
+                }
+                updateUI();
+            }
+        }
+
+        function rotatePiece(piece) {
+            const rotated=[];
+            const N=piece.shape.length;
+            for(let i=0;i<piece.shape[0].length;i++){
+                rotated[i]=[];
+                for(let j=0;j<N;j++){
+                    rotated[i][j]=piece.shape[N-1-j][i];
+                }
+            }
+            return rotated;
+        }
+        function updateUI() {
+            document.getElementById('score').textContent=score;
+            document.getElementById('level').textContent=level;
+            document.getElementById('lines').textContent=lines;
+            const mobileScore=document.getElementById('mobileScore');
+            const mobileLevel=document.getElementById('mobileLevel');
+            const mobileLines=document.getElementById('mobileLines');
+            if(mobileScore) mobileScore.textContent=score;
+            if(mobileLevel) mobileLevel.textContent=level;
+            if(mobileLines) mobileLines.textContent=lines;
+        }
+        function drawBlock(context, x, y, color){
+            const gradient = context.createLinearGradient(x, y, x+BLOCK_SIZE, y+BLOCK_SIZE);
+            gradient.addColorStop(0, color);
+            gradient.addColorStop(1, shadeColor(color,-40));
+            context.fillStyle=gradient;
+            context.fillRect(x, y, BLOCK_SIZE, BLOCK_SIZE);
+            context.strokeStyle='#333';
+            context.lineWidth=1;
+            context.strokeRect(x, y, BLOCK_SIZE, BLOCK_SIZE);
+            context.fillStyle=shadeColor(color,60);
+            context.fillRect(x+2, y+2, BLOCK_SIZE-4, 2);
+            context.fillRect(x+2, y+2, 2, BLOCK_SIZE-4);
+        }
+        function shadeColor(color, percent) {
+            const f = parseInt(color.slice(1), 16),
+                  t = percent < 0 ? 0 : 255,
+                  p = percent < 0 ? percent * -1 : percent,
+                  R = f>>16, G=(f>>8)&0x00FF, B = f&0x0000FF;
+            return "#" + (0x1000000 + (Math.round((t-R)*p/100)+R)*0x10000 + (Math.round((t-G)*p/100)+G)*0x100 + (Math.round((t-B)*p/100)+B)).toString(16).slice(1);
+        }
+        function drawBoard() {
+            ctx.fillStyle='rgba(0,20,40,0.8)';
+            ctx.fillRect(0,0,canvas.width,canvas.height);
+            for(let y=0;y<BOARD_HEIGHT;y++){
+                for(let x=0;x<BOARD_WIDTH;x++){
+                    if(board[y][x]) drawBlock(ctx,x*BLOCK_SIZE,y*BLOCK_SIZE,board[y][x]);
+                }
+            }
+        }
+        function drawPiece(piece){
+            for(let y=0;y<piece.shape.length;y++){
+                for(let x=0;x<piece.shape[y].length;x++){
+                    if(piece.shape[y][x]){
+                        drawBlock(ctx,(piece.x+x)*BLOCK_SIZE,(piece.y+y)*BLOCK_SIZE,piece.color);
+                    }
+                }
+            }
+        }
+        function drawNextPiece() {
+            // PC
+            nextCtx.clearRect(0,0,nextCanvas.width,nextCanvas.height);
+            if(nextCtxMobile) nextCtxMobile.clearRect(0,0,nextCanvasMobile.width,nextCanvasMobile.height);
+            if (nextPiece) {
+                const offsetX=(nextCanvas.width-nextPiece.shape[0].length*15)/2;
+                const offsetY=(nextCanvas.height-nextPiece.shape.length*15)/2;
+                for(let y=0;y<nextPiece.shape.length;y++){
+                    for(let x=0;x<nextPiece.shape[y].length;x++){
+                        if(nextPiece.shape[y][x]){
+                            nextCtx.fillStyle=nextPiece.color;
+                            nextCtx.fillRect(offsetX + x*15, offsetY + y*15, 15,15);
+                            nextCtx.strokeStyle='#333';
+                            nextCtx.strokeRect(offsetX + x*15, offsetY + y*15, 15,15);
+                        }
+                    }
+                }
+                if(nextCtxMobile){
+                    const mobileOffsetX=(nextCanvasMobile.width-nextPiece.shape[0].length*12)/2;
+                    const mobileOffsetY=(nextCanvasMobile.height-nextPiece.shape.length*12)/2;
+                    for(let y=0;y<nextPiece.shape.length;y++){
+                        for(let x=0;x<nextPiece.shape[y].length;x++){
+                            if(nextPiece.shape[y][x]){
+                                nextCtxMobile.fillStyle=nextPiece.color;
+                                nextCtxMobile.fillRect(mobileOffsetX + x*12,mobileOffsetY + y*12,12,12);
+                                nextCtxMobile.strokeStyle='#333';
+                                nextCtxMobile.strokeRect(mobileOffsetX + x*12, mobileOffsetY + y*12, 12,12);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        function updateParticles(){
+            effectsCtx.clearRect(0,0,effectsCanvas.width,effectsCanvas.height);
+            for(let i=particles.length-1;i>=0;i--){
+                particles[i].update();
+                particles[i].draw();
+                if(particles[i].isDead()){ particles.splice(i,1); }
+            }
+        }
+        function gameLoop(currentTime){
+            if(!gameRunning) return;
+            updateParticles();
+            if(currentTime-dropTime > dropInterval){
+                if(currentPiece && canMove(currentPiece,0,1)){
+                    currentPiece.y++;
+                } else {
+                    if(currentPiece){
+                        placePiece(currentPiece);
+                        clearLines();
+                    }
+                    currentPiece = nextPiece || getRandomPiece();
+                    nextPiece = getRandomPiece();
+                    drawNextPiece();
+                }
+                dropTime = currentTime;
+            }
+            drawBoard();
+            if(currentPiece){ drawPiece(currentPiece); }
+            requestAnimationFrame(gameLoop);
+        }
+        function startGame(){
+            initBoard();
+            score=0;
+            level=1;
+            lines=0;
+            dropInterval=1000;
+            gameRunning=true;
+            particles=[];
+            currentPiece=getRandomPiece();
+            nextPiece=getRandomPiece();
+            updateUI();
+            drawNextPiece();
+            document.getElementById('gameOver').style.display='none';
+            requestAnimationFrame(gameLoop);
+        }
+
+        // ---------- 入力（キーボード＆タッチ） ----------
+        document.addEventListener('keydown', (e) => {
+            if(!gameRunning || !currentPiece) return;
+            handleInput(e.key);
+            e.preventDefault();
+        });
+        function handleInput(key){
+            if(!gameRunning||!currentPiece) return;
+            switch(key){
+                case 'ArrowLeft':
+                case 'left':
+                    if (canMove(currentPiece,-1,0)) currentPiece.x--;
+                    break;
+                case 'ArrowRight':
+                case 'right':
+                    if (canMove(currentPiece,1,0)) currentPiece.x++;
+                    break;
+                case 'ArrowDown':
+                case 'down':
+                    if (canMove(currentPiece,0,1)) {
+                        currentPiece.y++;
+                        score+=1; updateUI();
+                    }
+                    break;
+                case 'ArrowUp':
+                case 'rotate':
+                    const rotated=rotatePiece(currentPiece);
+                    if(canMove(currentPiece,0,0,rotated)){ currentPiece.shape=rotated; }
+                    break;
+                case ' ':
+                case 'drop':
+                    while (canMove(currentPiece,0,1)){
+                        currentPiece.y++; score+=2;
+                    }
+                    updateUI();
+                    break;
+            }
+        }
+        document.getElementById('leftBtn').addEventListener('touchstart', e=>{e.preventDefault();handleInput('left');});
+        document.getElementById('rightBtn').addEventListener('touchstart', e=>{e.preventDefault();handleInput('right');});
+        document.getElementById('downBtn').addEventListener('touchstart', e=>{e.preventDefault();handleInput('down');});
+        document.getElementById('rotateBtn').addEventListener('touchstart', e=>{e.preventDefault();handleInput('rotate');});
+        document.getElementById('dropBtn').addEventListener('touchstart', e=>{e.preventDefault();handleInput('drop');});
+        document.getElementById('leftBtn').addEventListener('click', ()=>handleInput('left'));
+        document.getElementById('rightBtn').addEventListener('click', ()=>handleInput('right'));
+        document.getElementById('downBtn').addEventListener('click', ()=>handleInput('down'));
+        document.getElementById('rotateBtn').addEventListener('click', ()=>handleInput('rotate'));
+        document.getElementById('dropBtn').addEventListener('click', ()=>handleInput('drop'));
+        let touchTimeout;
+        ['leftBtn','rightBtn','downBtn'].forEach(id=>{
+            const btn=document.getElementById(id);
+            let isPressed=false;
+            btn.addEventListener('touchstart',()=>{
+                if(isPressed) return;
+                isPressed=true;
+                touchTimeout=setInterval(()=>{handleInput(id.replace('Btn',''));},150);
+            });
+            btn.addEventListener('touchend',()=>{
+                isPressed=false;
+                clearInterval(touchTimeout);
+            });
+            btn.addEventListener('touchcancel',()=>{
+                isPressed=false;
+                clearInterval(touchTimeout);
+            });
+        });
+        // ゲーム開始
+        startGame();
+    </script>
+</body>
+</html>
